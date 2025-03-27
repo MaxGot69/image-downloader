@@ -48,19 +48,32 @@ foreach ($links as $url) {
         continue;
     }
 
-    // Проверка доступности URL с помощью cURL
+    // Инициализация cURL
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HEADER, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); // Следовать за редиректами
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $finalUrl = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL); // Финальный URL после редиректов
     curl_close($ch);
 
     // Обработка кода ответа
-    if ($httpCode === 301 || $httpCode === 404) {
-        fwrite($log, "Ошибка: $url (код HTTP $httpCode)\n");
+    if ($httpCode === 301 || $httpCode === 302) {
+        fwrite($log, "Редирект: $url => $finalUrl (код HTTP $httpCode)\n");
+        // Пытаемся скачать с финальной ссылки
+        $fileData = file_get_contents($finalUrl);
+        if ($fileData === false) {
+            fwrite($log, "Ошибка при скачивании файла: $finalUrl\n");
+        } else {
+            file_put_contents($filePath, $fileData);
+            fwrite($log, "Скачан файл: $filePath\n");
+            $downloadedLinks[] = $filePath;
+        }
+    } elseif ($httpCode === 404) {
+        fwrite($log, "Ошибка: $url (код HTTP 404)\n");
     } elseif ($httpCode === 200) {
-        // Скачивание файла
+        // Скачивание файла, если код 200
         $fileData = file_get_contents($url);
         if ($fileData === false) {
             fwrite($log, "Ошибка при скачивании файла: $url\n");
