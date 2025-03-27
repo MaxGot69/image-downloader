@@ -1,106 +1,47 @@
 <?php
 
+// Устанавливаем время выполнения скрипта без ограничений
+set_time_limit(0);
 
-function check_url($url) {
-    $headers = @get_headers($url);
-    return strpos($headers[0], '200') !== false;  
-}
+// Открываем файл с ссылками
+$file = 'image_links.txt';
+$logFile = 'Image_download_log.txt';
+$errorLogFile = 'errors.log';
 
-function log_error($message) {
-    file_put_contents('logs/errors.log', $message . PHP_EOL, FILE_APPEND);
-}
+$links = file($file, FILE_IGNORE_NEW_LINES); // Считываем ссылки из файла
+$count = count($links);
 
+// Логирование запуска
+file_put_contents($logFile, "Запуск: " . date("Y-m-d H:i:s") . " Количество ссылок: $count\n", FILE_APPEND);
 
-function download_image($url, $save_path) {
-    
-    if (!check_url($url)) {
-        log_error("Недоступна ссылка: $url");
-        echo "Ошибка: ссылка недоступна: $url\n";
-        return;
+// Процесс скачивания изображений
+foreach ($links as $link) {
+    // Проверяем доступность ссылки
+    $headers = get_headers($link, 1);
+
+    if (strpos($headers[0], '200') === false) {
+        // Записываем недоступную ссылку в error.log
+        file_put_contents($errorLogFile, "Недоступна ссылка: $link\n", FILE_APPEND);
+        file_put_contents($logFile, "Ошибка: ссылка недоступна: $link\n", FILE_APPEND);
+        continue; // Переходим к следующей ссылке
     }
 
-    if (file_exists($save_path)) {
-        echo "Файл уже существует: $save_path\n";
-        return;
-    }
+    // Пытаемся скачать изображение
+    $imageData = file_get_contents($link);
 
-    
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); 
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false); 
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    $data = curl_exec($ch);
-    
-    if ($data === false) {
-        log_error("Ошибка скачивания с URL $url: " . curl_error($ch));
-        echo "Ошибка скачивания: $url\n";
+    if ($imageData === false) {
+        // Записываем ошибку, если не удалось скачать
+        file_put_contents($errorLogFile, "Не удалось скачать изображение с: $link\n", FILE_APPEND);
+        file_put_contents($logFile, "Ошибка: не удалось скачать изображение с: $link\n", FILE_APPEND);
     } else {
-        file_put_contents($save_path, $data);
-        echo "Скачано: $url\n";
+        // Генерируем имя файла на основе URL
+        $imageName = basename($link);
+        file_put_contents($logFile, "Скачано: $link\n", FILE_APPEND);
+
+        // Сохраняем изображение в папке "downloads"
+        file_put_contents('downloads/' . $imageName, $imageData);
     }
-    
-    curl_close($ch);
 }
 
-
-function load_links($filename) {
-    if (!file_exists($filename)) {
-        log_error("Файл с ссылками не найден: $filename");
-        return [];
-    }
-
-    return file($filename, FILE_IGNORE_NEW_LINES);
-}
-
-
-function download_images_from_links($links) {
-    $saved_count = 0;
-    $skipped_count = 0;
-    $failed_count = 0;
-
-    foreach ($links as $link) {
-        $filename = basename($link);
-        $save_path = 'images/' . $filename;
-
-        download_image($link, $save_path);
-
-        if (file_exists($save_path)) {
-            $saved_count++;
-        } else {
-            $failed_count++;
-        }
-
-        
-        if (!file_exists($save_path) && $failed_count == 0) {
-            $skipped_count++;
-            log_error("Пропущено: $link");
-        }
-    }
-
-    echo "Завершение: Скачано: $saved_count, Пропущено: $skipped_count, Ошибок: $failed_count\n";
-}
-
-
-function main() {
-    $links = load_links('links.txt');
-    if (empty($links)) {
-        echo "Нет ссылок для скачивания.\n";
-        return;
-    }
-
-    $start_time = date('Y-m-d H:i:s');
-    echo "Запуск: $start_time\n";
-    echo "Количество ссылок: " . count($links) . "\n";
-
-    
-    download_images_from_links($links);
-
-    $end_time = date('Y-m-d H:i:s');
-    echo "Завершение: $end_time\n";
-}
-
-
-main();
-
+file_put_contents($logFile, "Завершено: " . date("Y-m-d H:i:s") . "\n", FILE_APPEND);
+?>
