@@ -1,47 +1,33 @@
 <?php
+// Чтение ссылок из файла
+$links = file('links.txt', FILE_IGNORE_NEW_LINES);
 
-// Устанавливаем время выполнения скрипта без ограничений
-set_time_limit(0);
+// Выводим количество ссылок для удобства
+echo "Запуск: " . date('Y-m-d H:i:s') . " Количество ссылок: " . count($links) . "\n";
 
-// Открываем файл с ссылками
-$file = 'links.txt';
-$logFile = 'Image_download_log.txt';
-$errorLogFile = 'errors.log';
+// Обрабатываем каждую ссылку
+foreach ($links as $url) {
+    // Инициализация cURL
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_NOBODY, true); // Нам не нужно тело ответа
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); // Следуем за редиректами
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10); // Таймаут запроса
 
-$links = file($file, FILE_IGNORE_NEW_LINES); // Считываем ссылки из файла
-$count = count($links);
+    // Выполняем запрос
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
 
-// Логирование запуска
-file_put_contents($logFile, "Запуск: " . date("Y-m-d H:i:s") . " Количество ссылок: $count\n", FILE_APPEND);
-
-// Процесс скачивания изображений
-foreach ($links as $link) {
-    // Проверяем доступность ссылки
-    $headers = get_headers($link, 1);
-
-    if (strpos($headers[0], '200') === false) {
-        // Записываем недоступную ссылку в error.log
-        file_put_contents($errorLogFile, "Недоступна ссылка: $link\n", FILE_APPEND);
-        file_put_contents($logFile, "Ошибка: ссылка недоступна: $link\n", FILE_APPEND);
-        continue; // Переходим к следующей ссылке
-    }
-
-    // Пытаемся скачать изображение
-    $imageData = file_get_contents($link);
-
-    if ($imageData === false) {
-        // Записываем ошибку, если не удалось скачать
-        file_put_contents($errorLogFile, "Не удалось скачать изображение с: $link\n", FILE_APPEND);
-        file_put_contents($logFile, "Ошибка: не удалось скачать изображение с: $link\n", FILE_APPEND);
+    // Проверяем успешность запроса
+    if ($response && $httpCode >= 200 && $httpCode < 400) {
+        echo "Ссылка доступна: $url\n";
     } else {
-        // Генерируем имя файла на основе URL
-        $imageName = basename($link);
-        file_put_contents($logFile, "Скачано: $link\n", FILE_APPEND);
-
-        // Сохраняем изображение в папке "downloads"
-        file_put_contents('downloads/' . $imageName, $imageData);
+        echo "Ошибка: ссылка недоступна: $url\n";
     }
 }
 
-file_put_contents($logFile, "Завершено: " . date("Y-m-d H:i:s") . "\n", FILE_APPEND);
+// Выводим время завершения
+echo "Завершено: " . date('Y-m-d H:i:s') . "\n";
+
 
