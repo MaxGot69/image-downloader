@@ -1,57 +1,106 @@
 <?php
 
-require_once 'src/FileProcessor.php';
-require_once 'src/ImageSaver.php';
-require_once 'src/Logger.php';
 
+function check_url($url) {
+    $headers = @get_headers($url);
+    return strpos($headers[0], '200') !== false;  
+}
 
-$logFile = 'logs/log_' . date('Y-m-d_H-i-s') . '.txt'; 
-$logger = new Logger($logFile, 3); 
-
-$logger->writeLog("Запуск скрипта: " . date('Y-m-d H:i:s')); 
-
-
-$fileProcessor = new FileProcessor('links.txt'); 
-$imageSaver = new ImageSaver('images'); 
-
-
-$links = $fileProcessor->getLinksFromFile();
-$logger->writeLog("Количество ссылок: " . count($links));
-
-$downloaded = 0;
-$skipped = 0;
-$errors = 0;
-
-foreach ($links as $url) {
-    if (!empty($url)) { 
-        $responseCode = get_headers($url, associative: 1)[0];
-        $logger->writeLog("Ответ от сервера для {$url}: {$responseCode}"); 
-        if ($responseCode == 404) {
-            $logger->writeLog("Ошибка 404: {$url} не найдено на сервере"); 
-            continue; 
-        }
-
-        
-        if (!is_dir('images')) {
-            mkdir('images', 0777, true); 
-        }
-
-        
-        $result = $imageSaver->saveImage($url);
-        if ($result) { 
-            $logger->writeLog("Скачано: $url", 2); 
-            $downloaded++; 
-        } else { 
-            $logger->writeLog("Пропущено: $url", 2); 
-            $skipped++; 
-        }
-    } else {
-        $errors++;
-        $logger->writeLog("Ошибка с URL: $url", 2); 
-    }
+function log_error($message) {
+    file_put_contents('logs/errors.log', $message . PHP_EOL, FILE_APPEND);
 }
 
 
-$logger->writeLog("Завершение скрипта: " . date('Y-m-d H:i:s'));
-$logger->writeLog("Итого - Скачано: $downloaded, Пропущено: $skipped, Ошибок: $errors");
+function download_image($url, $save_path) {
+    
+    if (!check_url($url)) {
+        log_error("Недоступна ссылка: $url");
+        echo "Ошибка: ссылка недоступна: $url\n";
+        return;
+    }
+
+    if (file_exists($save_path)) {
+        echo "Файл уже существует: $save_path\n";
+        return;
+    }
+
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); 
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false); 
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    $data = curl_exec($ch);
+    
+    if ($data === false) {
+        log_error("Ошибка скачивания с URL $url: " . curl_error($ch));
+        echo "Ошибка скачивания: $url\n";
+    } else {
+        file_put_contents($save_path, $data);
+        echo "Скачано: $url\n";
+    }
+    
+    curl_close($ch);
+}
+
+
+function load_links($filename) {
+    if (!file_exists($filename)) {
+        log_error("Файл с ссылками не найден: $filename");
+        return [];
+    }
+
+    return file($filename, FILE_IGNORE_NEW_LINES);
+}
+
+
+function download_images_from_links($links) {
+    $saved_count = 0;
+    $skipped_count = 0;
+    $failed_count = 0;
+
+    foreach ($links as $link) {
+        $filename = basename($link);
+        $save_path = 'images/' . $filename;
+
+        download_image($link, $save_path);
+
+        if (file_exists($save_path)) {
+            $saved_count++;
+        } else {
+            $failed_count++;
+        }
+
+        
+        if (!file_exists($save_path) && $failed_count == 0) {
+            $skipped_count++;
+            log_error("Пропущено: $link");
+        }
+    }
+
+    echo "Завершение: Скачано: $saved_count, Пропущено: $skipped_count, Ошибок: $failed_count\n";
+}
+
+
+function main() {
+    $links = load_links('links.txt');
+    if (empty($links)) {
+        echo "Нет ссылок для скачивания.\n";
+        return;
+    }
+
+    $start_time = date('Y-m-d H:i:s');
+    echo "Запуск: $start_time\n";
+    echo "Количество ссылок: " . count($links) . "\n";
+
+    
+    download_images_from_links($links);
+
+    $end_time = date('Y-m-d H:i:s');
+    echo "Завершение: $end_time\n";
+}
+
+
+main();
 
