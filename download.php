@@ -1,73 +1,67 @@
 <?php
-
-// Путь к файлу с ссылками
-$inputFile = 'input.txt';
-// Папка для сохранения изображений
-$outputDir = 'downloads';
-// Путь к логам
-$logFile = 'image_download_log.txt';
-// Путь к файлу с ошибками
+// Файл логов
+$logFile = 'Image_download_log.txt';
+// Файл ошибок
 $errorLogFile = 'errors.log';
+// Файл с ссылками на изображения
+$linksFile = 'links.txt';
 
-// Функция для записи лога
-function writeLog($message, $logFile)
-{
-    $date = date('Y-m-d H:i:s');
-    file_put_contents($logFile, "[$date] $message\n", FILE_APPEND);
+// Проверяем существование файла с ссылками
+if (!file_exists($linksFile)) {
+    echo "Ошибка: файл с ссылками не найден!\n";
+    exit();
 }
 
-// Проверка наличия и создание директорий
-if (!is_dir($outputDir)) {
-    mkdir($outputDir, 0777, true);
+// Получаем все ссылки из файла
+$links = file($linksFile, FILE_IGNORE_NEW_LINES);
+if ($links === false) {
+    echo "Ошибка: не удалось прочитать файл с ссылками!\n";
+    exit();
 }
 
-// Чтение ссылок из файла
-$links = file($inputFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+// Функция для записи в лог
+function writeToLog($message, $logFile) {
+    $timestamp = date('Y-m-d H:i:s');
+    $logMessage = "$timestamp - $message\n";
+    file_put_contents($logFile, $logMessage, FILE_APPEND);
+}
 
-// Открываем лог для записи
-writeLog("Запуск: " . date('Y-m-d H:i:s'), $logFile);
+// Функция для проверки доступности ссылки
+function checkLink($url) {
+    $headers = get_headers($url, 1);
+    return $headers ? $headers[0] : false;
+}
 
-// Переменная для подсчета недоступных ссылок
-$errors = 0;
-
-foreach ($links as $link) {
-    $url = trim($link);
-    if (filter_var($url, FILTER_VALIDATE_URL)) {
-        // Инициализация cURL
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);  // Следуем за редиректами
-        curl_setopt($ch, CURLOPT_HEADER, true);  // Получаем заголовки ответа
-        curl_setopt($ch, CURLOPT_NOBODY, true);  // Только заголовки
-
-        // Получаем заголовки ответа
-        $response = curl_exec($ch);
-        $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-        // Проверка кода ответа
-        if ($statusCode == 200) {
-            // Загружаем файл, если ссылка доступна
-            $imageData = file_get_contents($url);
-            $filename = $outputDir . DIRECTORY_SEPARATOR . basename($url);
-            file_put_contents($filename, $imageData);
-            writeLog("Ссылка доступна: $url", $logFile);
+// Функция для загрузки файла
+function downloadFile($url, $logFile, $errorLogFile) {
+    $headers = get_headers($url, 1);
+    if (strpos($headers[0], '200') !== false) {
+        // Получаем имя файла
+        $filename = basename($url);
+        $fileData = file_get_contents($url);
+        if ($fileData) {
+            file_put_contents($filename, $fileData);
+            writeToLog("Ссылка доступна: $url", $logFile);
         } else {
-            // Записываем ошибку, если ссылка недоступна
-            $errors++;
-            writeLog("Ошибка: ссылка недоступна: $url (код HTTP: $statusCode)", $errorLogFile);
+            writeToLog("Ошибка: не удалось скачать файл с $url", $errorLogFile);
         }
-
-        // Закрываем cURL
-        curl_close($ch);
     } else {
-        writeLog("Некорректная ссылка: $url", $errorLogFile);
+        writeToLog("Ошибка: ссылка недоступна: $url (код ответа: $headers[0])", $errorLogFile);
     }
 }
 
-// Завершение работы
-writeLog("Завершено: " . date('Y-m-d H:i:s'), $logFile);
-writeLog("Процесс завершен с ошибками: $errors недоступных ссылок.", $logFile);
+// Запускаем процесс
+echo "Запуск: " . date('Y-m-d H:i:s') . "\n";
+writeToLog("Запуск: " . date('Y-m-d H:i:s'), $logFile);
 
-echo "Процесс завершен с ошибками: $errors недоступных ссылок.\n";
+foreach ($links as $link) {
+    $link = trim($link); // Убираем лишние пробелы
+    if (!empty($link)) {
+        echo "Ссылка: $link | Код ответа: " . checkLink($link) . "\n";
+        downloadFile($link, $logFile, $errorLogFile);
+    }
+}
 
+echo "Завершено: " . date('Y-m-d H:i:s') . "\n";
+writeToLog("Завершено: " . date('Y-m-d H:i:s'), $logFile);
 ?>
