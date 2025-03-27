@@ -1,67 +1,84 @@
 <?php
 
-// Функция для скачивания изображения
-function downloadImage($url, $savePath) {
-    // Инициализация cURL
-    $ch = curl_init($url);
-    
-    // Установка параметров для cURL
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); // Следуем за редиректами
-    curl_setopt($ch, CURLOPT_HEADER, true); // Получаем заголовки
-    curl_setopt($ch, CURLOPT_NOBODY, false); // Загружаем содержимое
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Отключаем проверку SSL для сайтов с самоподписанными сертификатами
+// Файл, где хранятся ссылки
+$file = 'links.txt';
 
-    // Выполняем запрос и получаем ответ
-    $response = curl_exec($ch);
-
-    // Получаем код ответа
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    
-    // Проверяем, успешный ли запрос
-    if ($httpCode >= 200 && $httpCode < 300) {
-        // Получаем тело ответа (содержимое)
-        $content = curl_exec($ch);
-
-        // Записываем содержимое в файл
-        file_put_contents($savePath, $content);
-        echo "Скачано: $url\n";
-    } else {
-        echo "Ошибка: $url (код HTTP $httpCode)\n";
-    }
-
-    // Закрытие cURL соединения
-    curl_close($ch);
+// Проверка существования файла
+if (!file_exists($file)) {
+    die("Файл не найден: $file");
 }
 
 // Чтение ссылок из файла
-$links = file('links.txt', FILE_IGNORE_NEW_LINES);
-$logFile = 'image_download_log.txt';
+$links = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 
-// Начало записи лога
-$logMessage = "Запуск: " . date('Y-m-d H:i:s') . "\n";
-file_put_contents($logFile, $logMessage, FILE_APPEND);
+if (!$links) {
+    die("Не удалось прочитать ссылки из файла.");
+}
 
-// Перебор всех ссылок
+// Папка для сохранения изображений
+$downloadDir = 'images';
+
+// Проверка существования папки для загрузки
+if (!is_dir($downloadDir)) {
+    mkdir($downloadDir, 0777, true);
+}
+
+// Логирование
+$logFile = 'download_log.txt';
+$log = fopen($logFile, 'a');
+if (!$log) {
+    die("Не удалось открыть файл логов для записи.");
+}
+
+// Запись лога с датой
+$logDate = date("Y-m-d H:i:s");
+fwrite($log, "Запуск: $logDate\n");
+
+// Обработка ссылок
+$downloadedLinks = [];
+
 foreach ($links as $url) {
-    $savePath = 'images/' . basename($url);
+    // Генерация имени файла из URL
+    $fileName = basename($url);
+    $filePath = "$downloadDir/$fileName";
 
-    // Проверяем, если файл уже существует, пропускаем
-    if (file_exists($savePath)) {
-        echo "Файл уже существует: $savePath\n";
+    // Если файл уже существует, пропускаем его
+    if (in_array($filePath, $downloadedLinks)) {
+        fwrite($log, "Файл уже существует: $filePath\n");
         continue;
     }
 
-    // Скачиваем изображение
-    downloadImage($url, $savePath);
-    
-    // Запись в лог после скачивания
-    $logMessage = "Ссылка: $url | Код ответа: HTTP/1.1 " . curl_getinfo($ch, CURLINFO_HTTP_CODE) . "\n";
-    file_put_contents($logFile, $logMessage, FILE_APPEND);
+    // Проверка доступности URL с помощью cURL
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HEADER, true);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    // Обработка кода ответа
+    if ($httpCode === 301 || $httpCode === 404) {
+        fwrite($log, "Ошибка: $url (код HTTP $httpCode)\n");
+    } elseif ($httpCode === 200) {
+        // Скачивание файла
+        $fileData = file_get_contents($url);
+        if ($fileData === false) {
+            fwrite($log, "Ошибка при скачивании файла: $url\n");
+        } else {
+            file_put_contents($filePath, $fileData);
+            fwrite($log, "Скачан файл: $filePath\n");
+            $downloadedLinks[] = $filePath;
+        }
+    } else {
+        fwrite($log, "Неизвестная ошибка при доступе к: $url (код HTTP $httpCode)\n");
+    }
 }
 
-$logMessage = "Завершено: " . date('Y-m-d H:i:s') . "\n";
-file_put_contents($logFile, $logMessage, FILE_APPEND);
+// Завершение
+$logDateEnd = date("Y-m-d H:i:s");
+fwrite($log, "Завершено: $logDateEnd\n");
+fclose($log);
 
 echo "Процесс завершен.\n";
+
 ?>
