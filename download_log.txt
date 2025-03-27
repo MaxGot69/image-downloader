@@ -10,3 +10,15 @@
 Ошибка: http://sp.vseproprognozy.ru/upload/iblock/102/vz7707x8hqy9levp05r364x2ztguyk0p.jpg (код HTTP 301)
 Ошибка: http://sp.vseproprognozy.ru/upload/resize_cache/iblock/bda/290_427_1/gac4i23y4e6k3l7objcak2syeb7v80px.jpg (код HTTP 301)
 Завершено: 2025-03-27 12:23:57
+Запуск: 2025-03-27 12:26:36
+Скачан файл: images/tgwbrsik6v3mynvm8k1p6y6gb9wcz2rh.webp
+Ошибка: http://sp.vseproprognozy.ru/upload/iblock/43a/adefj56re4kjewwwm02mgjszsloh67564gf.webp (код HTTP 404)
+Скачан файл: images/ptzsu7w4namxerlthtkr838aurmjtsft.png
+Скачан файл: images/dxhb4bp8lpg0nydu39of7axoyi37l5jj.jpg
+Скачан файл: images/tqzzb83r2flwcvseh62dwt6aat8imdpk.jpg
+Скачан файл: images/qnw9yvijzk6t7z2i921ppnyzqnsds3bp.jpg
+Ошибка: http://sp.vseproprognozy.ru/upload/resize_cache/iblock/35/768_768_1/gh6erw32zk6t7z2i921ppny7gh43bp.jpg (код HTTP 404)
+Скачан файл: images/67eujfb4z0uc3rij43cn3pqtuby62qnn.png
+Скачан файл: images/vz7707x8hqy9levp05r364x2ztguyk0p.jpg
+Скачан файл: images/gac4i23y4e6k3l7objcak2syeb7v80px.jpg
+Завершено: 2025-03-27 12:27:52
