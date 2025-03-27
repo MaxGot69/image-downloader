@@ -1,63 +1,73 @@
 <?php
 
-// Файл для записи логов с текущей датой и временем
-$logFile = 'logs/log_' . date('Y-m-d_H-i-s') . '.txt';
-
-// Массив ссылок на изображения
-$urls = [
-    "http://sp.vseproprognozy.ru/upload/iblock/36a/tgwbrsik6v3mynvm8k1p6y6gb9wcz2rh.webp",
-    "http://sp.vseproprognozy.ru/upload/iblock/43a/adefj56re4kjewwwm02mgjszsloh67564gf.webp",
-    // Добавь сюда другие ссылки
-];
-
+// Путь к файлу с ссылками
+$inputFile = 'input.txt';
 // Папка для сохранения изображений
-$downloadFolder = 'downloads';
+$outputDir = 'downloads';
+// Путь к логам
+$logFile = 'image_download_log.txt';
+// Путь к файлу с ошибками
+$errorLogFile = 'errors.log';
 
-// Создаем папку для скачивания, если ее нет
-if (!file_exists($downloadFolder)) {
-    mkdir($downloadFolder, 0777, true);
-}
-
-// Логирование начала выполнения
-file_put_contents($logFile, "Запуск: " . date('Y-m-d H:i:s') . "\n", FILE_APPEND);
-
-// Функция для скачивания файла
-function downloadImage($url, $logFile, $downloadFolder)
+// Функция для записи лога
+function writeLog($message, $logFile)
 {
-    $fileName = basename($url);
-    $filePath = $downloadFolder . DIRECTORY_SEPARATOR . $fileName;
+    $date = date('Y-m-d H:i:s');
+    file_put_contents($logFile, "[$date] $message\n", FILE_APPEND);
+}
 
-    // Проверяем, был ли файл уже скачан
-    if (file_exists($filePath)) {
-        file_put_contents($logFile, "Файл уже существует: $url\n", FILE_APPEND);
-        return;
-    }
+// Проверка наличия и создание директорий
+if (!is_dir($outputDir)) {
+    mkdir($outputDir, 0777, true);
+}
 
-    // Получаем код ответа сервера
-    $headers = get_headers($url, 1);
-    $httpCode = isset($headers[0]) ? $headers[0] : 'No Response';
+// Чтение ссылок из файла
+$links = file($inputFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 
-    // Логируем код ответа
-    file_put_contents($logFile, "Ссылка: $url | Код ответа: $httpCode\n", FILE_APPEND);
+// Открываем лог для записи
+writeLog("Запуск: " . date('Y-m-d H:i:s'), $logFile);
 
-    // Если код ответа 200, скачиваем файл
-    if ($httpCode == 'HTTP/1.1 200 OK') {
-        $imageData = file_get_contents($url);
-        if ($imageData === false) {
-            file_put_contents($logFile, "Ошибка скачивания: $url\n", FILE_APPEND);
+// Переменная для подсчета недоступных ссылок
+$errors = 0;
+
+foreach ($links as $link) {
+    $url = trim($link);
+    if (filter_var($url, FILTER_VALIDATE_URL)) {
+        // Инициализация cURL
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);  // Следуем за редиректами
+        curl_setopt($ch, CURLOPT_HEADER, true);  // Получаем заголовки ответа
+        curl_setopt($ch, CURLOPT_NOBODY, true);  // Только заголовки
+
+        // Получаем заголовки ответа
+        $response = curl_exec($ch);
+        $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+        // Проверка кода ответа
+        if ($statusCode == 200) {
+            // Загружаем файл, если ссылка доступна
+            $imageData = file_get_contents($url);
+            $filename = $outputDir . DIRECTORY_SEPARATOR . basename($url);
+            file_put_contents($filename, $imageData);
+            writeLog("Ссылка доступна: $url", $logFile);
         } else {
-            file_put_contents($filePath, $imageData);
-            file_put_contents($logFile, "Скачано: $url\n", FILE_APPEND);
+            // Записываем ошибку, если ссылка недоступна
+            $errors++;
+            writeLog("Ошибка: ссылка недоступна: $url (код HTTP: $statusCode)", $errorLogFile);
         }
+
+        // Закрываем cURL
+        curl_close($ch);
     } else {
-        file_put_contents($logFile, "Ошибка: $url (код $httpCode)\n", FILE_APPEND);
+        writeLog("Некорректная ссылка: $url", $errorLogFile);
     }
 }
 
-// Обрабатываем каждую ссылку
-foreach ($urls as $url) {
-    downloadImage($url, $logFile, $downloadFolder);
-}
+// Завершение работы
+writeLog("Завершено: " . date('Y-m-d H:i:s'), $logFile);
+writeLog("Процесс завершен с ошибками: $errors недоступных ссылок.", $logFile);
 
-// Логируем завершение работы
-file_put_contents($logFile, "Завершено: " . date('Y-m-d H:i:s') . "\n", FILE_APPEND);
+echo "Процесс завершен с ошибками: $errors недоступных ссылок.\n";
+
+?>

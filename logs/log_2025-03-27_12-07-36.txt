@@ -1,0 +1,6 @@
+Запуск: 2025-03-27 12:07:36
+Ссылка: http://sp.vseproprognozy.ru/upload/iblock/36a/tgwbrsik6v3mynvm8k1p6y6gb9wcz2rh.webp | Код ответа: HTTP/1.1 301 Moved Permanently
+Ошибка: http://sp.vseproprognozy.ru/upload/iblock/36a/tgwbrsik6v3mynvm8k1p6y6gb9wcz2rh.webp (код HTTP/1.1 301 Moved Permanently)
+Ссылка: http://sp.vseproprognozy.ru/upload/iblock/43a/adefj56re4kjewwwm02mgjszsloh67564gf.webp | Код ответа: HTTP/1.1 301 Moved Permanently
+Ошибка: http://sp.vseproprognozy.ru/upload/iblock/43a/adefj56re4kjewwwm02mgjszsloh67564gf.webp (код HTTP/1.1 301 Moved Permanently)
+Завершено: 2025-03-27 12:07:43
