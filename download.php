@@ -4,7 +4,7 @@
 set_time_limit(0);
 
 // Открываем файл с ссылками
-$file = 'image_links.txt';
+$file = 'links.txt';
 $logFile = 'Image_download_log.txt';
 $errorLogFile = 'errors.log';
 
@@ -44,4 +44,4 @@ foreach ($links as $link) {
 }
 
 file_put_contents($logFile, "Завершено: " . date("Y-m-d H:i:s") . "\n", FILE_APPEND);
-?>
+
